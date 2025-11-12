@@ -37,12 +37,31 @@ export default function CaricatureGenerator({
       })
 
       if (!response.ok) {
-        throw new Error("Nie udało się wygenerować karykatury")
+        // 🔍 debug: spróbujmy wyciągnąć konkretny komunikat z backendu
+        let message = `Nie udało się wygenerować karykatury (status ${response.status})`
+
+        try {
+          const errorData = await response.json().catch(() => null)
+          if (errorData && typeof errorData === "object" && "error" in errorData) {
+            message = `Błąd serwera: ${String((errorData as any).error)}`
+          } else {
+            const text = await response.text().catch(() => "")
+            if (text) {
+              message = `Błąd serwera: ${text}`
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing error response:", e)
+        }
+
+        throw new Error(message)
       }
 
       const data = await response.json()
+      console.log("Caricature API response:", data)
       onGenerate(data.imageUrl)
     } catch (err) {
+      console.error("Caricature generate error (frontend):", err)
       setError(err instanceof Error ? err.message : "Coś poszło nie tak")
     } finally {
       setLoading(false)
