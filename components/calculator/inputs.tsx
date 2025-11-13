@@ -3,15 +3,15 @@ import { ChevronDown } from "lucide-react"
 
 interface CalculatorState {
   currency: "PLN" | "USD"
-  rate: number
-  ht: number
-  mc: number
+  rate: number | ""
+  ht: number | ""
+  mc: number | ""
   n: number
   w: number
-  tasks: number
-  rt: number
-  rc: number
-  mt: number
+  tasks: number | ""
+  rt: number | ""
+  rc: number | ""
+  mt: number | ""
   advancedOpen: boolean
 }
 
@@ -21,22 +21,42 @@ interface CalculatorInputsProps {
 }
 
 export default function CalculatorInputs({ state, onInputChange }: CalculatorInputsProps) {
+  // funkcja pozwalająca na pustą wartość i tylko cyfry+kropka
+  const handleInput = (field: keyof CalculatorState, raw: string, allowZero = true) => {
+    if (raw === "") {
+      onInputChange(field, "")
+      return
+    }
+    if (!/^\d*\.?\d*$/.test(raw)) return
+    onInputChange(field, raw)
+  }
+
+  const handleBlur = (
+    field: keyof CalculatorState,
+    min: number,
+  ) => {
+    const num = Number(state[field])
+    if (state[field] === "" || isNaN(num)) {
+      onInputChange(field, min)
+      return
+    }
+    onInputChange(field, Math.max(min, num))
+  }
+
   return (
     <div className="bg-white rounded-[14px] p-6 border border-[#ffe8d6] shadow-sm">
       <h2 className="text-[#3d2817] text-lg font-semibold mb-1">Dane wejściowe</h2>
-      <p className="text-[#9b8b75] text-sm mb-6">Wypełnij pola i zobacz wyniki w czasie rzeczywistym.</p>
+      <p className="text-[#9b8b75] text-sm mb-6">Wypełnij pola i zobacz wyniki.</p>
 
       <div className="space-y-5">
-        {/* Currency Select */}
+
+        {/* Currency */}
         <div>
-          <label htmlFor="currency" className="block text-[#3d2817] text-sm font-medium mb-2">
-            Waluta
-          </label>
+          <label className="block text-[#3d2817] text-sm font-medium mb-2">Waluta</label>
           <select
-            id="currency"
             value={state.currency}
             onChange={(e) => onInputChange("currency", e.target.value)}
-            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] text-[#3d2817] border border-[#ffe8d6] focus:outline-none focus:ring-2 focus:ring-[#ff9566] text-sm"
+            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] border border-[#ffe8d6] text-sm"
           >
             <option value="PLN">PLN</option>
             <option value="USD">USD</option>
@@ -45,53 +65,41 @@ export default function CalculatorInputs({ state, onInputChange }: CalculatorInp
 
         {/* Rate */}
         <div>
-          <label htmlFor="rate" className="block text-[#3d2817] text-sm font-medium mb-2">
-            Stawka eksperta (zł/h)
-          </label>
+          <label className="block text-[#3d2817] text-sm font-medium mb-2">Stawka eksperta (zł/h)</label>
           <input
-            id="rate"
-            type="number"
-            min="20"
-            step="10"
+            type="text"
             value={state.rate}
-            onChange={(e) => onInputChange("rate", Math.max(20, Number.parseFloat(e.target.value) || 20))}
-            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] text-[#3d2817] border border-[#ffe8d6] focus:outline-none focus:ring-2 focus:ring-[#ff9566] text-sm"
+            onChange={(e) => handleInput("rate", e.target.value)}
+            onBlur={() => handleBlur("rate", 20)}
+            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] border border-[#ffe8d6] text-sm"
           />
         </div>
 
-        {/* HT (Human Time) */}
+        {/* HT */}
         <div>
-          <label htmlFor="ht" className="block text-[#3d2817] text-sm font-medium mb-2">
-            Czas zadania (HT, h)
-          </label>
+          <label className="block text-[#3d2817] text-sm font-medium mb-2">Czas zadania (HT, h)</label>
           <input
-            id="ht"
-            type="number"
-            min="0.5"
-            step="0.1"
+            type="text"
             value={state.ht}
-            onChange={(e) => onInputChange("ht", Math.max(0.5, Number.parseFloat(e.target.value) || 0.5))}
-            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] text-[#3d2817] border border-[#ffe8d6] focus:outline-none focus:ring-2 focus:ring-[#ff9566] text-sm"
+            onChange={(e) => handleInput("ht", e.target.value)}
+            onBlur={() => handleBlur("ht", 0.5)}
+            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] border border-[#ffe8d6] text-sm"
           />
         </div>
 
-        {/* MC (Model Cost) */}
+        {/* MC */}
         <div>
-          <label htmlFor="mc" className="block text-[#3d2817] text-sm font-medium mb-2">
-            Koszt jednego przebiegu modelu (MC)
-          </label>
+          <label className="block text-[#3d2817] text-sm font-medium mb-2">Koszt modelu (MC)</label>
           <input
-            id="mc"
-            type="number"
-            min="0"
-            step="1"
+            type="text"
             value={state.mc}
-            onChange={(e) => onInputChange("mc", Math.max(0, Number.parseFloat(e.target.value) || 0))}
-            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] text-[#3d2817] border border-[#ffe8d6] focus:outline-none focus:ring-2 focus:ring-[#ff9566] text-sm"
+            onChange={(e) => handleInput("mc", e.target.value)}
+            onBlur={() => handleBlur("mc", 0)}
+            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] border border-[#ffe8d6] text-sm"
           />
         </div>
 
-        {/* Stepper: Number of tries (n) */}
+        {/* n */}
         <div>
           <label className="block text-[#3d2817] text-sm font-medium mb-3">
             Liczba prób (n): <span className="text-[#ff9566]">{state.n}</span>
@@ -102,9 +110,7 @@ export default function CalculatorInputs({ state, onInputChange }: CalculatorInp
                 key={num}
                 onClick={() => onInputChange("n", num)}
                 className={`flex-1 py-2 rounded-[10px] font-medium text-sm transition-all ${
-                  state.n === num
-                    ? "bg-[#ff9566] text-white"
-                    : "bg-[#fff5ed] text-[#3d2817] border border-[#ffe8d6] hover:border-[#ff9566]"
+                  state.n === num ? "bg-[#ff9566] text-white" : "bg-[#fff5ed] border border-[#ffe8d6]"
                 }`}
               >
                 {num}
@@ -113,112 +119,85 @@ export default function CalculatorInputs({ state, onInputChange }: CalculatorInp
           </div>
         </div>
 
-        {/* Win rate slider */}
+        {/* Win rate */}
         <div>
-          <div className="flex justify-between items-center mb-2">
-            <label htmlFor="w" className="text-[#3d2817] text-sm font-medium">
-              Win rate (w)
-            </label>
-            <span className="text-[#ff9566] text-sm font-semibold">{state.w}%</span>
+          <div className="flex justify-between mb-2">
+            <label className="text-sm font-medium">Win rate (w)</label>
+            <span className="text-[#ff9566] font-semibold">{state.w}%</span>
           </div>
           <input
-            id="w"
             type="range"
             min="0"
             max="100"
-            step="1"
             value={state.w}
-            onChange={(e) => onInputChange("w", Number.parseFloat(e.target.value))}
-            className="w-full h-2 bg-[#ffe8d6] rounded-full appearance-none cursor-pointer accent-[#ff9566]"
+            onChange={(e) => onInputChange("w", Number(e.target.value))}
+            className="w-full h-2 bg-[#ffe8d6] rounded-full accent-[#ff9566]"
           />
-          {state.w === 0 && (
-            <p className="text-[#9b8b75] text-xs mt-2">
-              Przy 0% trafień AI zawsze poprawia człowiek — sprawdź break-even.
-            </p>
-          )}
         </div>
 
-        {/* Tasks per month */}
+        {/* Tasks */}
         <div>
-          <label htmlFor="tasks" className="block text-[#3d2817] text-sm font-medium mb-2">
-            Zadań / mies.
-          </label>
+          <label className="block text-[#3d2817] text-sm font-medium mb-2">Zadań / mies.</label>
           <input
-            id="tasks"
-            type="number"
-            min="1"
-            step="1"
+            type="text"
             value={state.tasks}
-            onChange={(e) => onInputChange("tasks", Math.max(1, Number.parseFloat(e.target.value) || 1))}
-            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] text-[#3d2817] border border-[#ffe8d6] focus:outline-none focus:ring-2 focus:ring-[#ff9566] text-sm"
+            onChange={(e) => handleInput("tasks", e.target.value)}
+            onBlur={() => handleBlur("tasks", 1)}
+            className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] border border-[#ffe8d6] text-sm"
           />
         </div>
 
-        {/* Advanced Mode Toggle */}
+        {/* Advanced toggle */}
         <button
           onClick={() => onInputChange("advancedOpen", !state.advancedOpen)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-[#fffbf5] rounded-[10px] border border-[#ffe8d6] hover:border-[#ff9566] transition-colors text-[#3d2817] font-medium"
+          className="w-full flex items-center justify-between px-4 py-3 bg-[#fffbf5] rounded-[10px] border border-[#ffe8d6] text-[#3d2817]"
         >
           Tryb zaawansowany
-          <ChevronDown size={18} className={`transition-transform ${state.advancedOpen ? "rotate-180" : ""}`} />
+          <ChevronDown size={18} className={state.advancedOpen ? "rotate-180" : ""} />
         </button>
 
-        {/* Advanced Mode Inputs */}
         {state.advancedOpen && (
           <div className="space-y-5 pt-4 border-t border-[#ffe8d6]">
+
+            {/* RT */}
             <div>
-              <label htmlFor="rt" className="block text-[#3d2817] text-sm font-medium mb-2">
-                Czas review (RT, h)
-              </label>
+              <label className="block mb-2 text-sm font-medium">Czas review (RT, h)</label>
               <input
-                id="rt"
-                type="number"
-                min="0"
-                step="0.1"
+                type="text"
                 value={state.rt}
-                onChange={(e) => onInputChange("rt", Math.max(0, Number.parseFloat(e.target.value) || 0))}
-                className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] text-[#3d2817] border border-[#ffe8d6] focus:outline-none focus:ring-2 focus:ring-[#ff9566] text-sm"
+                onChange={(e) => handleInput("rt", e.target.value)}
+                onBlur={() => handleBlur("rt", 0)}
+                className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] border border-[#ffe8d6] text-sm"
               />
             </div>
 
+            {/* RC */}
             <div>
-              <label htmlFor="rc" className="block text-[#3d2817] text-sm font-medium mb-2">
-                Koszt review (RC)
-              </label>
+              <label className="block mb-2 text-sm font-medium">Koszt review (RC)</label>
               <input
-                id="rc"
-                type="number"
-                min="0"
-                step="1"
+                type="text"
                 value={state.rc}
-                onChange={(e) => onInputChange("rc", Math.max(0, Number.parseFloat(e.target.value) || 0))}
-                className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] text-[#3d2817] border border-[#ffe8d6] focus:outline-none focus:ring-2 focus:ring-[#ff9566] text-sm"
+                onChange={(e) => handleInput("rc", e.target.value)}
+                onBlur={() => handleBlur("rc", 0)}
+                className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] border border-[#ffe8d6] text-sm"
               />
             </div>
 
+            {/* MT */}
             <div>
-              <label htmlFor="mt" className="block text-[#3d2817] text-sm font-medium mb-2">
-                Czas przebiegu modelu (MT, h)
-              </label>
+              <label className="block mb-2 text-sm font-medium">Czas modelu (MT, h)</label>
               <input
-                id="mt"
-                type="number"
-                min="0"
-                step="0.05"
+                type="text"
                 value={state.mt}
-                onChange={(e) => onInputChange("mt", Math.max(0, Number.parseFloat(e.target.value) || 0))}
-                className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] text-[#3d2817] border border-[#ffe8d6] focus:outline-none focus:ring-2 focus:ring-[#ff9566] text-sm"
+                onChange={(e) => handleInput("mt", e.target.value)}
+                onBlur={() => handleBlur("mt", 0)}
+                className="w-full px-3 py-2 rounded-[14px] bg-[#fffbf5] border border-[#ffe8d6] text-sm"
               />
             </div>
 
-            <div>
-              <label className="block text-[#3d2817] text-sm font-medium mb-2">Koszt zadania – człowiek (HC)</label>
-              <div className="px-3 py-2 rounded-[14px] bg-[#fffbf5] text-[#9b8b75] border border-[#ffe8d6] text-sm">
-                {(state.rate * state.ht).toFixed(2)} {state.currency}
-              </div>
-            </div>
           </div>
         )}
+
       </div>
     </div>
   )
