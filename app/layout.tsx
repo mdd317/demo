@@ -8,9 +8,9 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "ElixaAi - AI ROI Calculator & Caricature Generator",
+  title: "AI ROI Calculator & Caricature Generator",
   description: "Calculate your AI ROI with GDPval model or generate AI caricatures",
-  generator: "v0.app",
+  generator: "Requena",
   viewport: {
     width: "device-width",
     initialScale: 1,
