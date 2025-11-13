@@ -8,24 +8,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing email or caricature URL" }, { status: 400 })
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
-    // Placeholder implementation - integrate with email service (Resend, SendGrid, etc.)
-    // For now, just log and return success
-    console.log(`Caricature sent to ${email}: ${caricatureUrl}`)
+    const apiKey = process.env.RESEND_API_KEY
+    const from = process.env.EMAIL_FROM || "Elixa AI <onboarding@resend.dev>"
 
-    // Example: If using Resend
-    // const resend = new Resend(process.env.RESEND_API_KEY)
-    // await resend.emails.send({
-    //   from: 'noreply@elixaai.com',
-    //   to: email,
-    //   subject: 'Your AI Caricature',
-    //   html: `<img src="${caricatureUrl}" alt="Your caricature" style="max-width: 100%;" />`,
-    // })
+    if (!apiKey) {
+      return NextResponse.json({ error: "Missing RESEND_API_KEY" }, { status: 500 })
+    }
+
+    // 🔥 Wywołanie Resend REST API
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: email,                       // <<–– TU IDZIE MAIL PODANY W APCE
+        subject: "Twoja karykatura AI 🎨",
+        html: `
+          <p>Cześć! 😄</p>
+          <p>Twoja karykatura AI jest gotowa:</p>
+          <p>
+            <a href="${caricatureUrl}" target="_blank" rel="noopener noreferrer">
+              Kliknij tutaj, aby ją zobaczyć
+            </a>
+          </p>
+          <p>
+            <img src="${caricatureUrl}" alt="Twoja karykatura" style="max-width: 100%; border-radius: 8px;" />
+          </p>
+          <p>Pozdrawiamy,<br/>Zespół Elixa AI</p>
+        `,
+      }),
+    })
+
+    const data = await res.json()
+    console.log("Resend response:", res.status, data)
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: "Resend API error", details: data },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({ ok: true })
   } catch (error) {
