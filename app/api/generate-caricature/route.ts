@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     }
 
     // 4) POLL WAVESPEED – status i output siedzą w data.*
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 120; i++) {
       await new Promise(r => setTimeout(r, 2000))
 
       const pollRes = await fetch(
