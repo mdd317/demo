@@ -11,64 +11,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Brak pliku zdjęcia" }, { status: 400 })
     }
 
-    const falKey = process.env.FAL_KEY
-    if (!falKey) {
+    const key = process.env.STABILITY_API_KEY
+    if (!key) {
       return NextResponse.json(
-        { error: "Brak FAL_KEY w środowisku Vercel" },
+        { error: "Brak STABILITY_API_KEY w środowisku" },
         { status: 500 }
       )
     }
 
-    // File → base64
-    const buffer = Buffer.from(await file.arrayBuffer())
+    // File -> Base64
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
     const base64 = buffer.toString("base64")
 
-    // ✔️ POPRAWNY MODEL: flux-lora
-    const falResponse = await fetch(
-      "https://queue.fal.run/fal-ai/flux-lora",
+    const response = await fetch(
+      "https://api.stability.ai/v2beta/stable-image/image-to-image",
       {
         method: "POST",
         headers: {
+          Authorization: `Bearer ${key}`,
+          Accept: "image/png",
           "Content-Type": "application/json",
-          Authorization: `Key ${falKey}`,
         },
         body: JSON.stringify({
-          input: {
-            image_url: `data:${file.type};base64,${base64}`,
-            prompt:
-              "cartoon caricature, exaggerated face, colorful, fun, recognizable person, digital art",
-            lora_strength: 0.8,
-            guidance: 3.5,
-          },
+          image: base64,
+          prompt:
+            "cartoon caricature, colorful, exaggerated features but recognizable, clean shading, digital art",
+          strength: 0.6,
+          output_format: "png",
         }),
       }
     )
 
-    const falData = await falResponse.json()
-
-    if (!falResponse.ok) {
-      console.error("FAL API ERROR:", falData)
+    if (!response.ok) {
+      const errText = await response.text()
+      console.error("STABILITY API ERROR:", errText)
       return NextResponse.json(
-        {
-          error:
-            falData?.error?.message ||
-            falData?.detail ||
-            "fal.ai zwróciło błąd",
-        },
+        { error: "Stability API error: " + errText },
         { status: 500 }
       )
     }
 
-    const imageUrl = falData?.output?.image?.url
+    // Stability returns binary PNG in the body
+    const imgBlob = await response.arrayBuffer()
+    const resultBase64 = Buffer.from(imgBlob).toString("base64")
+    const url = `data:image/png;base64,${resultBase64}`
 
-    if (!imageUrl) {
-      return NextResponse.json(
-        { error: "fal.ai nie zwróciło wygenerowanego obrazu" },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({ imageUrl })
+    return NextResponse.json({ imageUrl: url })
   } catch (err: any) {
     console.error("SERVER ERROR:", err)
     return NextResponse.json(
