@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
-export const runtime = "nodejs" // potrzebne na Vercelu dla Buffer + env
+export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,82 +11,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 })
     }
 
-    const openaiKey = process.env.OPENAI_API_KEY
-    console.log("OPENAI_API_KEY present?", openaiKey ? "YES" : "NO")
-
-    if (!openaiKey) {
-      return NextResponse.json(
-        { error: "OPENAI_API_KEY is not set on the server" },
-        { status: 500 },
-      )
+    const falKey = process.env.FAL_KEY
+    if (!falKey) {
+      return NextResponse.json({ error: "FAL_KEY is missing" }, { status: 500 })
     }
 
-    // Zamiana File -> Buffer
     const arrayBuffer = await image.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // Budujemy form-data dla OpenAI (image edit)
-    const apiForm = new FormData()
-    apiForm.append("model", "gpt-image-1") // ewentualnie "dall-e-2"
-    apiForm.append(
-      "image",
-      new Blob([buffer], { type: image.type || "image/png" }),
-      "input.png",
-    )
-    apiForm.append(
-      "prompt",
-      "Create a fun digital caricature of this person in a clean cartoon style with slightly exaggerated facial features, keeping the face recognizable.",
-    )
-    apiForm.append("size", "1024x1024")
-    apiForm.append("response_format", "b64_json")
-
-    const response = await fetch("https://api.openai.com/v1/images/edits", {
+    const uploadRes = await fetch("https://fal.run/api/v1/storage/upload", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        // Content-Type celowo NIE ustawiamy – fetch zrobi to za FormData
-      },
-      body: apiForm,
+      headers: { Authorization: `Key ${falKey}` },
+      body: buffer,
     })
 
-    // 🔍 jeśli OpenAI zwróci błąd, zwróć pełną treść do frontu
-    if (!response.ok) {
-      const text = await response.text()
-      console.error("OpenAI error:", response.status, text)
+    const uploadJson = await uploadRes.json()
+    const imageUrl = uploadJson.url
 
-      return NextResponse.json(
-        {
-          error: `OpenAI error (${response.status}): ${text}`,
-        },
-        { status: 500 },
-      )
-    }
+    const response = await fetch("https://fal.run/api/v1/run/fal-ai/kandinsky-image-to-image", {
+      method: "POST",
+      headers: {
+        Authorization: `Key ${falKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt:
+          "Create a fun digital caricature of this person. Exaggerate facial features slightly but keep them recognizable. Cartoon, colorful, clean lines.",
+        image_url: imageUrl,
+        strength: 0.7,
+      }),
+    })
 
     const data = await response.json()
 
-    // OpenAI zwraca base64 w data[0].b64_json
-    const b64 = data?.data?.[0]?.b64_json as string | undefined
-
-    if (!b64) {
-      return NextResponse.json(
-        { error: "No image returned from OpenAI" },
-        { status: 500 },
-      )
-    }
-
-    const imageUrl = `data:image/png;base64,${b64}`
-
-    return NextResponse.json({ imageUrl })
-  } catch (error) {
-    console.error("Caricature generation error (server):", error)
-
+    return NextResponse.json({ imageUrl: data.images[0].url })
+  } catch (err) {
+    console.error(err)
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? `Server error: ${error.message}`
-            : "Server error: unknown",
-      },
+      { error: String(err) },
       { status: 500 },
     )
   }
