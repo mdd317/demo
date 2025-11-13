@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
           <p>
             <img src="${caricatureUrl}" alt="Twoja karykatura" style="max-width: 100%; border-radius: 8px;" />
           </p>
-          <p>Pozdrawiamy,<br/>Zespół Elixa AI</p>
+          <p>Pozdrawiamy,<br/>Zespół Requena</p>
         `,
       }),
     })
