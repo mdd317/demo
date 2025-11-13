@@ -53,7 +53,7 @@ export default function CaricatureEmail({ generatedUrl }: EmailProps) {
 
   return (
     <div className="bg-white rounded-[14px] p-6 border border-[#ffe8d6] shadow-sm">
-      <h2 className="text-[#3d2817] text-lg font-semibold mb-1">4. Wyślij na e-mail</h2>
+      <h2 className="text-[#3d2817] text-lg font-semibold mb-1">3. Wyślij na e-mail</h2>
       <p className="text-[#9b8b75] text-sm mb-6">Podaj adres e-mail, na który mamy wysłać Twoją karykaturę.</p>
 
       <div className="space-y-4">
