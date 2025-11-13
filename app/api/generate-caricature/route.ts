@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer)
     const base64 = buffer.toString("base64")
 
-    // 🔥 CALL fal.ai (queue API)
+    // 🔥 POPRAWNY MODEL: real-cartoonizer
     const falResponse = await fetch(
-      "https://queue.fal.run/fal-ai/face-toonify",
+      "https://queue.fal.run/fal-ai/real-cartoonizer",
       {
         method: "POST",
         headers: {
@@ -36,8 +36,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           input: {
             image: `data:${file.type};base64,${base64}`,
-            prompt:
-              "cartoon caricature, exaggerated but recognizable face, colorful, fun style",
+            prompt: "fun caricature, exaggerated face but recognizable",
           },
         }),
       }
@@ -58,12 +57,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fal.ai zwraca obraz w output.images[0].url
-    const imageUrl = falData?.output?.images?.[0]?.url
+    const imageUrl = falData?.output?.image?.url
 
     if (!imageUrl) {
       return NextResponse.json(
-        { error: "fal.ai nie zwróciło żadnego zdjęcia" },
+        { error: "fal.ai nie zwróciło zdjęcia" },
         { status: 500 }
       )
     }
