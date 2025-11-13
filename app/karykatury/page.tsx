@@ -24,7 +24,6 @@ export default function KarykaturyPage() {
       </div>
 
       <div className="max-w-[480px] mx-auto px-4 py-6 space-y-6">
-        <CaricatureEmailInput onEmailChange={setEmail} initialEmail={email} />
         <CaricatureUpload onImageSelect={setUploadedImage} uploadedImage={uploadedImage} />
         <CaricatureGenerator
           uploadedImage={uploadedImage}
