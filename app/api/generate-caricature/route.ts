@@ -16,19 +16,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "STABILITY_API_KEY nie ustawiony" }, { status: 500 })
     }
 
-    const imageBuffer = Buffer.from(await file.arrayBuffer())
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Tworzymy multipart/form-data dla Stability
     const apiForm = new FormData()
     apiForm.append(
       "image",
-      new Blob([imageBuffer], { type: file.type }),
+      new Blob([buffer], { type: file.type }),
       "input.jpg"
     )
     apiForm.append(
       "prompt",
       "fun caricature portrait, cartoon face, exaggerated but recognizable features, clean digital style"
     )
+
+    // ⬇️ wymagane aby image-to-image działało:
+    apiForm.append("mode", "image-to-image")
+
+    // ⬇️ jak mocno trzymać się oryginalnego zdjęcia (0–1)
+    apiForm.append("strength", "0.6")
+
     apiForm.append("output_format", "jpeg")
 
     const response = await fetch(
@@ -37,23 +43,23 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: {
           Authorization: `Bearer ${key}`,
-          Accept: "image/*",
+          Accept: "image/*"
         },
-        body: apiForm,
+        body: apiForm
       }
     )
 
+    const responseBuffer = await response.arrayBuffer()
+
     if (!response.ok) {
-      const errText = await response.text()
+      const err = Buffer.from(responseBuffer).toString()
       return NextResponse.json(
-        { error: "Stability API error: " + errText },
+        { error: "Stability API error: " + err },
         { status: 500 }
       )
     }
 
-    // Zwraca BINARNY obraz → konwertujemy na Base64
-    const arrayBuf = await response.arrayBuffer()
-    const base64 = Buffer.from(arrayBuf).toString("base64")
+    const base64 = Buffer.from(responseBuffer).toString("base64")
     const url = `data:image/jpeg;base64,${base64}`
 
     return NextResponse.json({ imageUrl: url })
