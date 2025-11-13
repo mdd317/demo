@@ -41,7 +41,7 @@ export default function CaricatureUpload({ onImageSelect, uploadedImage }: Uploa
 
   return (
     <div className="bg-white rounded-[14px] p-6 border border-[#ffe8d6] shadow-sm">
-      <h2 className="text-[#3d2817] text-lg font-semibold mb-1">2. Wgraj swoje zdjęcie</h2>
+      <h2 className="text-[#3d2817] text-lg font-semibold mb-1">1. Wgraj swoje zdjęcie</h2>
       <p className="text-[#9b8b75] text-sm mb-6">Najlepiej portret z dobrze widoczną twarzą.</p>
 
       {!preview ? (
