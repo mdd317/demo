@@ -1,79 +1,101 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 
 export const runtime = "nodejs"
 
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const form = await req.formData()
-    const file = form.get("image") as File | null
+    const form = await request.formData()
+    const image = form.get("image") as File | null
 
-    if (!file) {
-      return NextResponse.json({ error: "Brak zdjęcia" }, { status: 400 })
+    if (!image) {
+      return NextResponse.json({ error: "No image uploaded" }, { status: 400 })
     }
 
-    const key = process.env.STABILITY_API_KEY
-    if (!key) {
-      return NextResponse.json(
-        { error: "STABILITY_API_KEY nie jest ustawiony" },
-        { status: 500 }
-      )
+    if (!process.env.WAVESPEED_API_KEY) {
+      return NextResponse.json({ error: "Missing WAVESPEED_API_KEY" }, { status: 500 })
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer())
+    // 1) Convert uploaded file → base64 URL
+    const arrayBuffer = await image.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64 = buffer.toString("base64")
+    const dataUrl = `data:${image.type};base64,${base64}`
 
-    const apiForm = new FormData()
-
-    // Image → Image
-    apiForm.append(
-      "image",
-      new Blob([buffer], { type: file.type }),
-      "input.webp"
-    )
-
-    // ⭐ Cartoon, Pixar-like caricature prompt
-    apiForm.append(
-      "prompt",
-      `
-      high quality cartoon caricature portrait of this person, clean outlines,
-      vivid colors, smooth shading, exaggerated facial features but still recognizable,
-      professional digital illustration, crisp, charming, fun
-      `
-    )
-
-    apiForm.append("strength", "0.65")
-    apiForm.append("output_format", "webp")
-
-    // Accept binary WebP
-    const response = await fetch(
-      "https://api.stability.ai/v2beta/stable-image/generate/ultra",
+    // 2) Send request to WaveSpeed (async mode)
+    const start = await fetch(
+      "https://api.wavespeed.ai/api/v3/openai/gpt-image-1",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${key}`,
-          Accept: "image/*",
+          Authorization: `Bearer ${process.env.WAVESPEED_API_KEY}`,
+          "Content-Type": "application/json",
         },
-        body: apiForm,
+        body: JSON.stringify({
+          enable_base64_output: false,
+          enable_sync_mode: false,
+          image: dataUrl,
+          prompt: "Make a funny, exaggerated cartoon caricature. Big head, funny style.",
+          quality: "medium",
+          size: "auto",
+        }),
       }
     )
 
-    const bufferResp = await response.arrayBuffer()
+    const startJson = await start.json()
 
-    if (!response.ok) {
-      const text = Buffer.from(bufferResp).toString()
+    if (!start.ok || !startJson?.id) {
+      console.error("WaveSpeed start error:", startJson)
       return NextResponse.json(
-        { error: "Stability API error: " + text },
+        { error: "WaveSpeed failed to start job" },
         { status: 500 }
       )
     }
 
-    // Convert to base64 for frontend
-    const b64 = Buffer.from(bufferResp).toString("base64")
-    const url = `data:image/webp;base64,${b64}`
+    const requestId = startJson.id
 
-    return NextResponse.json({ imageUrl: url })
-  } catch (err: any) {
+    // 3) Polling: wait for the result
+    let resultUrl = null
+
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 2000)) // wait 2 sec
+
+      const resultReq = await fetch(
+        `https://api.wavespeed.ai/api/v3/predictions/${requestId}/result`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.WAVESPEED_API_KEY}`,
+          },
+        }
+      )
+
+      const resultJson = await resultReq.json()
+
+      if (resultJson?.status === "succeeded") {
+        resultUrl = resultJson?.output?.[0]
+        break
+      }
+
+      if (resultJson?.status === "failed") {
+        return NextResponse.json(
+          { error: "WaveSpeed generation failed" },
+          { status: 500 }
+        )
+      }
+    }
+
+    if (!resultUrl) {
+      return NextResponse.json(
+        { error: "WaveSpeed did not return an image" },
+        { status: 500 }
+      )
+    }
+
+    // 4) Return final image URL to frontend
+    return NextResponse.json({ imageUrl: resultUrl })
+  } catch (error) {
+    console.error("API error:", error)
     return NextResponse.json(
-      { error: err?.message || "Nieznany błąd" },
+      { error: "Server error generating caricature" },
       { status: 500 }
     )
   }
