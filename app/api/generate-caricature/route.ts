@@ -16,42 +16,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "FAL_KEY is missing" }, { status: 500 })
     }
 
-    // Convert File → Base64
+    // File -> Base64
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const base64 = buffer.toString("base64")
 
-    // REST request to fal.ai (NO install required)
+    // --- FAL.AI NEW JOB API ---
     const response = await fetch(
-      "https://api.fal.ai/v1/run/fal-ai/face-toonify",
+      "https://queue.fal.run/fal-ai/face-toonify",
       {
         method: "POST",
         headers: {
-          Authorization: `Key ${falKey}`,
           "Content-Type": "application/json",
+          Authorization: `Key ${falKey}`,
         },
         body: JSON.stringify({
           input: {
-            image_base64: base64,
+            image: `data:${file.type};base64,${base64}`,
             prompt:
-              "cartoon caricature, exaggerated but recognizable face, fun style, colorful",
+              "cartoon caricature, exaggerated but recognizable face, colorful, fun style",
           },
         }),
       }
     )
 
+    const result = await response.json()
+
     if (!response.ok) {
-      const text = await response.text()
-      console.error("FAL error:", text)
-      return NextResponse.json({ error: text }, { status: 500 })
+      console.error("FAL ERROR:", result)
+      return NextResponse.json({ error: result }, { status: 500 })
     }
 
-    const data = await response.json()
+    const output = result?.output?.images?.[0]?.url
 
-    const output = data?.data?.images?.[0]?.url
     if (!output) {
       return NextResponse.json(
-        { error: "No image returned from FAL" },
+        { error: "No image returned from fal.ai" },
         { status: 500 }
       )
     }
