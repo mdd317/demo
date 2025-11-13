@@ -86,7 +86,7 @@ export default function CaricatureGenerator({
 
   return (
     <div className="bg-white rounded-[14px] p-6 border border-[#ffe8d6] shadow-sm">
-      <h2 className="text-[#3d2817] text-lg font-semibold mb-1">3. Wygeneruj karykaturę</h2>
+      <h2 className="text-[#3d2817] text-lg font-semibold mb-1">2. Wygeneruj karykaturę</h2>
       <p className="text-[#9b8b75] text-sm mb-6">
         Używamy modelu AI, który tworzy karykatury na podstawie Twojego zdjęcia.
       </p>
