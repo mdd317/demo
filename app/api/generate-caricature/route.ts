@@ -13,121 +13,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No image uploaded" }, { status: 400 })
     }
 
-    const apiKey = process.env.WAVESPEED_API_KEY
+    const apiKey = process.env.STABILITY_API_KEY
     if (!apiKey) {
-      console.error("MISSING WAVESPEED_API_KEY")
-      return NextResponse.json({ error: "Missing WAVESPEED_API_KEY" }, { status: 500 })
+      return NextResponse.json({ error: "Missing STABILITY_API_KEY" }, { status: 500 })
     }
 
-    // ---- STEP 1: UPLOAD IMAGE TO WAVESPEED ----
-    console.log("Uploading image to WaveSpeed...")
+    const buffer = Buffer.from(await image.arrayBuffer())
 
-    const arrayBuffer = await image.arrayBuffer()
-    const blob = new Blob([arrayBuffer], { type: image.type || "image/png" })
+    // Build form-data for Stability
+    const payload = new FormData()
+    payload.append("prompt",
+      "Funny caricature, big head, exaggerated features, vibrant colors, comic cartoon style, keep likeness, high detail, smooth shading"
+    )
+    payload.append("mode", "image-to-image")
+    payload.append("strength", "0.85")
+    payload.append("image", new Blob([buffer], { type: image.type }), image.name)
+    payload.append("output_format", "png")
 
-    const uploadForm = new FormData()
-    uploadForm.append("file", blob, image.name || "upload.png")
+    console.log("Sending request to Stability...")
 
-    const uploadRes = await fetch(
-      "https://api.wavespeed.ai/api/v3/upload",
+    const res = await fetch(
+      "https://api.stability.ai/v2beta/stable-image/generate/ultra",
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
+          Accept: "image/*",
         },
-        body: uploadForm,
+        body: payload,
       }
     )
 
-    const uploadJson = await uploadRes.json()
-    console.log("UPLOAD RESULT:", uploadJson)
-
-    if (!uploadRes.ok || !uploadJson?.url) {
+    if (!res.ok) {
+      const errText = await res.text()
+      console.error("Stability error text:", errText)
       return NextResponse.json(
-        { error: "Image upload to WaveSpeed failed", details: uploadJson },
+        { error: "Stability AI error", details: errText },
         { status: 500 }
       )
     }
 
-    const imageUrl = uploadJson.url
+    const imageBuffer = Buffer.from(await res.arrayBuffer())
+    const base64 = imageBuffer.toString("base64")
+    const dataUrl = `data:image/png;base64,${base64}`
 
-    // ---- STEP 2: START GENERATION JOB ----
-    console.log("Starting caricature job...")
-
-    const startRes = await fetch(
-      "https://api.wavespeed.ai/api/v3/openai/gpt-image-1",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          enable_base64_output: false,
-          enable_sync_mode: false,
-
-          image: imageUrl,
-
-          prompt: "Create a funny caricature with exaggerated head, funny cartoon features, big eyes, comic style, vibrant colors, keep the face recognizable",
-          quality: "medium",
-          size: "1024x1024",
-        }),
-      }
-    )
-
-    const startJson = await startRes.json()
-    console.log("START JOB RESULT:", startJson)
-
-    if (!startRes.ok || !startJson?.id) {
-      return NextResponse.json(
-        { error: "WaveSpeed failed to start job", details: startJson },
-        { status: 500 }
-      )
-    }
-
-    const jobId = startJson.id
-
-    // ---- STEP 3: POLL RESULT ----
-    console.log("Polling for result...")
-
-    let resultUrl = null
-
-    for (let i = 0; i < 30; i++) {
-      await new Promise((r) => setTimeout(r, 2000))
-
-      const resultRes = await fetch(
-        `https://api.wavespeed.ai/api/v3/predictions/${jobId}/result`,
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-          },
-        }
-      )
-
-      const resultJson = await resultRes.json()
-      console.log(`POLL ${i}:`, resultJson)
-
-      if (resultJson.status === "succeeded") {
-        resultUrl = resultJson.output?.[0]
-        break
-      }
-
-      if (resultJson.status === "failed") {
-        return NextResponse.json(
-          { error: "WaveSpeed generation failed", details: resultJson },
-          { status: 500 }
-        )
-      }
-    }
-
-    if (!resultUrl) {
-      return NextResponse.json(
-        { error: "WaveSpeed did not return image" },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({ imageUrl: resultUrl })
+    return NextResponse.json({
+      imageUrl: dataUrl
+    })
   } catch (err: any) {
     console.error("CARICATURE ERROR:", err)
     return NextResponse.json(
