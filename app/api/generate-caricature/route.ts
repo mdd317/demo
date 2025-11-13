@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         enable_base64_output: false,
         enable_sync_mode: false,   // async + polling
         image: publicUrl,
-        prompt: "Funny exaggerated cartoon caricature, big head, caricature style, vibrant colors",
+        prompt: "Very funny exaggerated caricature",
         quality: "medium",
         // wg tabelki w docs: auto / 1024*1024 / 1024*1536 / 1536*1024
         size: "auto",
