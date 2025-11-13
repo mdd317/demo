@@ -2,66 +2,64 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const runtime = "nodejs"
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const form = await request.formData()
+    const form = await req.formData()
     const file = form.get("image") as File | null
 
     if (!file) {
-      return NextResponse.json({ error: "Brak pliku zdjęcia" }, { status: 400 })
+      return NextResponse.json({ error: "Brak zdjęcia" }, { status: 400 })
     }
 
     const key = process.env.STABILITY_API_KEY
     if (!key) {
-      return NextResponse.json(
-        { error: "Brak STABILITY_API_KEY w środowisku" },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: "STABILITY_API_KEY nie ustawiony" }, { status: 500 })
     }
 
-    // File -> Base64
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const base64 = buffer.toString("base64")
+    const imageBuffer = Buffer.from(await file.arrayBuffer())
+
+    // Tworzymy multipart/form-data dla Stability
+    const apiForm = new FormData()
+    apiForm.append(
+      "image",
+      new Blob([imageBuffer], { type: file.type }),
+      "input.jpg"
+    )
+    apiForm.append(
+      "prompt",
+      "fun caricature portrait, cartoon face, exaggerated but recognizable features, clean digital style"
+    )
+    apiForm.append("output_format", "jpeg")
 
     const response = await fetch(
-      "https://api.stability.ai/v2beta/stable-image/image-to-image",
+      "https://api.stability.ai/v2beta/stable-image/generate/sd3",
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${key}`,
-          Accept: "image/png",
-          "Content-Type": "application/json",
+          Accept: "image/*",
         },
-        body: JSON.stringify({
-          image: base64,
-          prompt:
-            "cartoon caricature, colorful, exaggerated features but recognizable, clean shading, digital art",
-          strength: 0.6,
-          output_format: "png",
-        }),
+        body: apiForm,
       }
     )
 
     if (!response.ok) {
       const errText = await response.text()
-      console.error("STABILITY API ERROR:", errText)
       return NextResponse.json(
         { error: "Stability API error: " + errText },
         { status: 500 }
       )
     }
 
-    // Stability returns binary PNG in the body
-    const imgBlob = await response.arrayBuffer()
-    const resultBase64 = Buffer.from(imgBlob).toString("base64")
-    const url = `data:image/png;base64,${resultBase64}`
+    // Zwraca BINARNY obraz → konwertujemy na Base64
+    const arrayBuf = await response.arrayBuffer()
+    const base64 = Buffer.from(arrayBuf).toString("base64")
+    const url = `data:image/jpeg;base64,${base64}`
 
     return NextResponse.json({ imageUrl: url })
-  } catch (err: any) {
-    console.error("SERVER ERROR:", err)
+  } catch (e: any) {
     return NextResponse.json(
-      { error: err?.message || "Nieznany błąd serwera" },
+      { error: e?.message ?? "Nieznany błąd serwera" },
       { status: 500 }
     )
   }
