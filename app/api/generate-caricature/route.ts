@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const falKey = process.env.FAL_KEY
     if (!falKey) {
       return NextResponse.json(
-        { error: "Brak FAL_KEY w zmiennych środowiskowych" },
+        { error: "Brak FAL_KEY w środowisku Vercel" },
         { status: 500 }
       )
     }
@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer)
     const base64 = buffer.toString("base64")
 
-    // 🔥 POPRAWNY MODEL: real-cartoonizer
+    // ✔️ NOWY, DZIAŁAJĄCY MODEL
     const falResponse = await fetch(
-      "https://queue.fal.run/fal-ai/real-cartoonizer",
+      "https://queue.fal.run/fal-ai–official/animagine-xl-3.1",
       {
         method: "POST",
         headers: {
@@ -36,7 +36,9 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           input: {
             image: `data:${file.type};base64,${base64}`,
-            prompt: "fun caricature, exaggerated face but recognizable",
+            prompt:
+              "caricature, cartoon style, exaggerated facial features but recognizable person, colorful, fun",
+            strength: 0.55,
           },
         }),
       }
@@ -51,26 +53,27 @@ export async function POST(request: NextRequest) {
           error:
             falData?.error?.message ||
             falData?.detail ||
-            "Nieznany błąd fal.ai",
+            "fal.ai zwróciło błąd",
         },
         { status: 500 }
       )
     }
 
-    const imageUrl = falData?.output?.image?.url
+    // ✔️ POPRAWNY OUTPUT
+    const imageUrl = falData?.output?.images?.[0]?.url
 
     if (!imageUrl) {
       return NextResponse.json(
-        { error: "fal.ai nie zwróciło zdjęcia" },
+        { error: "fal.ai nie zwróciło wygenerowanego obrazu" },
         { status: 500 }
       )
     }
 
     return NextResponse.json({ imageUrl })
-  } catch (error: any) {
-    console.error("SERVER ERROR:", error)
+  } catch (err: any) {
+    console.error("SERVER ERROR:", err)
     return NextResponse.json(
-      { error: error?.message || "Nieznany błąd serwera" },
+      { error: err?.message || "Nieznany błąd serwera" },
       { status: 500 }
     )
   }
