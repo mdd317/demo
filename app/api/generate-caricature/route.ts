@@ -19,14 +19,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // File → Base64
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    // File → base64
+    const buffer = Buffer.from(await file.arrayBuffer())
     const base64 = buffer.toString("base64")
 
-    // ✔️ NOWY, DZIAŁAJĄCY MODEL
+    // ✔️ POPRAWNY MODEL: flux-lora
     const falResponse = await fetch(
-      "https://queue.fal.run/fal-ai–official/animagine-xl-3.1",
+      "https://queue.fal.run/fal-ai/flux-lora",
       {
         method: "POST",
         headers: {
@@ -35,10 +34,11 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           input: {
-            image: `data:${file.type};base64,${base64}`,
+            image_url: `data:${file.type};base64,${base64}`,
             prompt:
-              "caricature, cartoon style, exaggerated facial features but recognizable person, colorful, fun",
-            strength: 0.55,
+              "cartoon caricature, exaggerated face, colorful, fun, recognizable person, digital art",
+            lora_strength: 0.8,
+            guidance: 3.5,
           },
         }),
       }
@@ -59,8 +59,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ✔️ POPRAWNY OUTPUT
-    const imageUrl = falData?.output?.images?.[0]?.url
+    const imageUrl = falData?.output?.image?.url
 
     if (!imageUrl) {
       return NextResponse.json(
