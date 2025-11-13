@@ -27,63 +27,65 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        image: base64,
-      }),
+      body: new URLSearchParams({ image: base64 }),
     })
 
     const uploadJson = await uploadRes.json()
     console.log("IMGBB:", uploadJson)
 
     if (!uploadJson?.data?.url) {
-      return NextResponse.json({ error: "Upload to IMGBB failed", details: uploadJson }, { status: 500 })
+      return NextResponse.json(
+        { error: "Upload to IMGBB failed", details: uploadJson },
+        { status: 500 },
+      )
     }
 
     const publicUrl = uploadJson.data.url
     console.log("PUBLIC IMG URL:", publicUrl)
 
-    // 3) start Wavespeed job – UWAGA: inny endpoint + inne pola
-    const startRes = await fetch(
-      "https://api.wavespeed.ai/api/v3/openai/gpt-image-1/text-to-image",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          enable_base64_output: false,
-          enable_sync_mode: false,
-          // wg oficjalnych docs size używa "*", nie "x"
-          size: "1024*1024",
-          quality: "medium",
-          prompt: "Funny exaggerated cartoon caricature, big head, caricature style, vibrant colors",
-          // dla stylizacji używamy image URL
-          image: publicUrl,
-        }),
-      }
-    )
+    // 3) START WAVESPEED JOB – TEN ENDPOINT, KTÓRY CHCESZ
+    const startRes = await fetch("https://api.wavespeed.ai/api/v3/openai/gpt-image-1", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        enable_base64_output: false,
+        enable_sync_mode: false,   // async + polling
+        image: publicUrl,
+        prompt: "Funny exaggerated cartoon caricature, big head, caricature style, vibrant colors",
+        quality: "medium",
+        // wg tabelki w docs: auto / 1024*1024 / 1024*1536 / 1536*1024
+        size: "auto",
+      }),
+    })
 
     const startJson = await startRes.json()
     console.log("WAVESPEED START:", startRes.status, startJson)
 
-    // Wavespeed zwraca data.id, nie id
+    // *** TU JEST KLUCZ: data.id, nie id ***
     const jobId = startJson?.data?.id
 
     if (!startRes.ok || !jobId) {
       return NextResponse.json(
-        { error: "Failed to start Wavespeed job", details: startJson },
-        { status: 500 }
+        {
+          error: "Failed to start Wavespeed job",
+          details: startJson,
+        },
+        { status: 500 },
       )
     }
 
-    // 4) polling Wavespeed – status i output w data.*, status = "completed"
+    // 4) POLL WAVESPEED – status i output siedzą w data.*
     for (let i = 0; i < 30; i++) {
       await new Promise(r => setTimeout(r, 2000))
 
       const pollRes = await fetch(
         `https://api.wavespeed.ai/api/v3/predictions/${jobId}/result`,
-        { headers: { Authorization: `Bearer ${apiKey}` } }
+        {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        },
       )
 
       const pollJson = await pollRes.json()
@@ -96,7 +98,7 @@ export async function POST(request: Request) {
         if (!outUrl) {
           return NextResponse.json(
             { error: "Wavespeed completed but no output URL", details: pollJson },
-            { status: 500 }
+            { status: 500 },
           )
         }
         return NextResponse.json({ imageUrl: outUrl })
@@ -105,14 +107,20 @@ export async function POST(request: Request) {
       if (status === "failed") {
         return NextResponse.json(
           { error: "Wavespeed failed", details: pollJson },
-          { status: 500 }
+          { status: 500 },
         )
       }
     }
 
-    return NextResponse.json({ error: "Timeout waiting for Wavespeed" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Timeout waiting for Wavespeed" },
+      { status: 500 },
+    )
   } catch (err: any) {
     console.error("CARICATURE ERROR:", err)
-    return NextResponse.json({ error: err.message || "Server error" }, { status: 500 })
+    return NextResponse.json(
+      { error: err.message || "Server error" },
+      { status: 500 },
+    )
   }
 }
