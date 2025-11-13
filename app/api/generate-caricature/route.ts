@@ -13,59 +13,67 @@ export async function POST(req: NextRequest) {
 
     const key = process.env.STABILITY_API_KEY
     if (!key) {
-      return NextResponse.json({ error: "STABILITY_API_KEY nie ustawiony" }, { status: 500 })
+      return NextResponse.json(
+        { error: "STABILITY_API_KEY nie jest ustawiony" },
+        { status: 500 }
+      )
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const apiForm = new FormData()
+
+    // Image → Image
     apiForm.append(
       "image",
       new Blob([buffer], { type: file.type }),
-      "input.jpg"
+      "input.webp"
     )
+
+    // ⭐ Cartoon, Pixar-like caricature prompt
     apiForm.append(
       "prompt",
-      "fun caricature portrait, cartoon face, exaggerated but recognizable features, clean digital style"
+      `
+      high quality cartoon caricature portrait of this person, clean outlines,
+      vivid colors, smooth shading, exaggerated facial features but still recognizable,
+      professional digital illustration, crisp, charming, fun
+      `
     )
 
-    // ⬇️ wymagane aby image-to-image działało:
-    apiForm.append("mode", "image-to-image")
+    apiForm.append("strength", "0.65")
+    apiForm.append("output_format", "webp")
 
-    // ⬇️ jak mocno trzymać się oryginalnego zdjęcia (0–1)
-    apiForm.append("strength", "0.6")
-
-    apiForm.append("output_format", "jpeg")
-
+    // Accept binary WebP
     const response = await fetch(
-      "https://api.stability.ai/v2beta/stable-image/generate/sd3",
+      "https://api.stability.ai/v2beta/stable-image/generate/ultra",
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${key}`,
-          Accept: "image/*"
+          Accept: "image/*",
         },
-        body: apiForm
+        body: apiForm,
       }
     )
 
-    const responseBuffer = await response.arrayBuffer()
+    const bufferResp = await response.arrayBuffer()
 
     if (!response.ok) {
-      const err = Buffer.from(responseBuffer).toString()
+      const text = Buffer.from(bufferResp).toString()
       return NextResponse.json(
-        { error: "Stability API error: " + err },
+        { error: "Stability API error: " + text },
         { status: 500 }
       )
     }
 
-    const base64 = Buffer.from(responseBuffer).toString("base64")
-    const url = `data:image/jpeg;base64,${base64}`
+    // Convert to base64 for frontend
+    const b64 = Buffer.from(bufferResp).toString("base64")
+    const url = `data:image/webp;base64,${b64}`
 
     return NextResponse.json({ imageUrl: url })
-  } catch (e: any) {
+  } catch (err: any) {
     return NextResponse.json(
-      { error: e?.message ?? "Nieznany błąd serwera" },
+      { error: err?.message || "Nieznany błąd" },
       { status: 500 }
     )
   }
