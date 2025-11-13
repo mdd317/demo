@@ -40,9 +40,10 @@ export async function POST(request: Request) {
 
     const startJson = await startRes.json()
 
-    if (!startRes.ok || !startJson.id) {
+    if (!startRes.ok || !startJson?.id) {
+      console.error("WAVESPEED START ERROR:", startJson)
       return NextResponse.json(
-        { error: "Failed to start Wavespeed job", details: startJson },
+        { error: "Failed to start Wavespeed job", wavespeed: startJson },
         { status: 500 }
       )
     }
