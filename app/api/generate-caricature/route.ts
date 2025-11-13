@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 
-export const runtime = "nodejs"
+export const runtime = "nodejs" // Buffer + process.env
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,96 +11,72 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 })
     }
 
-    const falKey = process.env.FAL_KEY
+    const openaiKey = process.env.OPENAI_API_KEY
+    console.log("DEBUG OPENAI_API_KEY:", openaiKey ? "PRESENT" : "MISSING")
 
-    // 🔍 DEBUG LOG – sprawdzamy, czy Vercel *naprawdę* widzi zmienną
-    console.log(
-      "DEBUG FAL_KEY:",
-      falKey ? `PRESENT (len=${falKey.length})` : "MISSING",
-    )
-
-    if (!falKey) {
+    if (!openaiKey) {
       return NextResponse.json(
-        { error: "FAL_KEY is missing (env not visible in this deployment)" },
+        { error: "OPENAI_API_KEY is not set on the server" },
         { status: 500 },
       )
     }
 
-    // 🔄 1) upload obrazka do storage fal.ai
+    // File -> Buffer
     const arrayBuffer = await image.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    const uploadRes = await fetch("https://fal.run/api/v1/storage/upload", {
+    // multipart/form-data do OpenAI /images/edits
+    const apiForm = new FormData()
+    apiForm.append("model", "gpt-image-1")
+
+    // ważne: używamy image[] (tak jak w docsach do edycji)
+    apiForm.append(
+      "image[]",
+      new Blob([buffer], { type: image.type || "image/png" }),
+      "input.png",
+    )
+
+    apiForm.append(
+      "prompt",
+      "Create a fun digital caricature of this person in a clean cartoon style with slightly exaggerated facial features, keeping the face recognizable.",
+    )
+    apiForm.append("size", "1024x1024")
+    apiForm.append("n", "1")
+    // NIE dodajemy response_format — gpt-image-1 ZAWSZE zwraca b64_json
+
+    const response = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: {
-        Authorization: `Key ${falKey}`,
+        Authorization: `Bearer ${openaiKey}`,
+        // Content-Type NIE ustawiamy ręcznie – fetch zrobi to sam na podstawie FormData
       },
-      body: buffer,
+      body: apiForm,
     })
-
-    if (!uploadRes.ok) {
-      const text = await uploadRes.text()
-      console.error("FAL upload error:", uploadRes.status, text)
-      return NextResponse.json(
-        { error: `FAL upload error (${uploadRes.status}): ${text}` },
-        { status: 500 },
-      )
-    }
-
-    const uploadJson = await uploadRes.json()
-    const imageUrl = uploadJson.url as string | undefined
-
-    if (!imageUrl) {
-      return NextResponse.json(
-        { error: "FAL upload did not return image URL" },
-        { status: 500 },
-      )
-    }
-
-    // 🔄 2) wywołanie modelu image-to-image (przykład: kandinsky-image-to-image)
-    const response = await fetch(
-      "https://fal.run/api/v1/run/fal-ai/kandinsky-image-to-image",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Key ${falKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt:
-            "Create a fun digital caricature of this person. Exaggerate facial features slightly but keep them recognizable. Cartoon, colorful, clean lines.",
-          image_url: imageUrl,
-          strength: 0.7,
-        }),
-      },
-    )
 
     if (!response.ok) {
       const text = await response.text()
-      console.error("FAL model error:", response.status, text)
+      console.error("OpenAI error:", response.status, text)
       return NextResponse.json(
-        { error: `FAL model error (${response.status}): ${text}` },
+        { error: `OpenAI error (${response.status}): ${text}` },
         { status: 500 },
       )
     }
 
     const data = await response.json()
 
-    // struktura odpowiedzi zależy od modelu – w fal.ai najczęściej data.images[0].url
-    const resultUrl =
-      (data as any)?.images?.[0]?.url ||
-      (data as any)?.image?.url ||
-      null
+    // gpt-image-1 zwraca base64 w data[0].b64_json
+    const b64 = data?.data?.[0]?.b64_json as string | undefined
 
-    if (!resultUrl) {
-      console.error("FAL response unexpected:", data)
+    if (!b64) {
       return NextResponse.json(
-        { error: "FAL did not return image URL in response" },
+        { error: "No image returned from OpenAI" },
         { status: 500 },
       )
     }
 
-    return NextResponse.json({ imageUrl: resultUrl })
+    const imageUrl = `data:image/png;base64,${b64}`
+
+    return NextResponse.json({ imageUrl })
   } catch (error) {
     console.error("Caricature generation error (server):", error)
     return NextResponse.json(
