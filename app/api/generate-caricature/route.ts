@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const publicUrl = uploadJson.data.url
     console.log("PUBLIC IMG URL:", publicUrl)
 
-    // 3) START WAVESPEED JOB (dokładnie to API, co chcesz)
+    // 3) START WAVESPEED JOB – TEN ENDPOINT, KTÓRY CHCESZ
     const startRes = await fetch("https://api.wavespeed.ai/api/v3/openai/gpt-image-1", {
       method: "POST",
       headers: {
@@ -56,13 +56,15 @@ export async function POST(request: Request) {
         image: publicUrl,
         prompt: "Funny exaggerated cartoon caricature, big head, caricature style, vibrant colors",
         quality: "medium",
-        size: "1024x1024",
+        // wg tabelki w docs: auto / 1024*1024 / 1024*1536 / 1536*1024
+        size: "auto",
       }),
     })
 
     const startJson = await startRes.json()
     console.log("WAVESPEED START:", startRes.status, startJson)
 
+    // *** TU JEST KLUCZ: data.id, nie id ***
     const jobId = startJson?.data?.id
 
     if (!startRes.ok || !jobId) {
@@ -75,26 +77,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // 4) POLL WAVESPEED – ZWIĘKSZONE CZEKANIE (np. 3 minuty)
-    const POLL_INTERVAL_MS = 3000     // co 3 sekundy
-    const MAX_WAIT_MS = 3 * 60 * 1000 // 3 minuty
-
-    const startTime = Date.now()
-
-    while (Date.now() - startTime < MAX_WAIT_MS) {
-      await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+    // 4) POLL WAVESPEED – status i output siedzą w data.*
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 2000))
 
       const pollRes = await fetch(
         `https://api.wavespeed.ai/api/v3/predictions/${jobId}/result`,
-        { headers: { Authorization: `Bearer ${apiKey}` } },
+        {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        },
       )
 
       const pollJson = await pollRes.json()
-      console.log(
-        `WAVESPEED POLL t=${Math.round((Date.now() - startTime)/1000)}s:`,
-        pollRes.status,
-        pollJson,
-      )
+      console.log(`WAVESPEED POLL ${i}:`, pollRes.status, pollJson)
 
       const status = pollJson?.data?.status
 
@@ -117,7 +112,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // po 3 minutach
     return NextResponse.json(
       { error: "Timeout waiting for Wavespeed" },
       { status: 500 },
